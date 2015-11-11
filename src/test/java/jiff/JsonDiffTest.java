@@ -5,6 +5,9 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.Assert;
 
+import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.node.*;
+
 public class JsonDiffTest {
     public static String esc(String s) {
         return s.replaceAll("\'","\"");
@@ -196,4 +199,13 @@ public class JsonDiffTest {
         Assert.assertEquals(0,list.size());
     }
 
+    @Test
+    public void cmpWithFilter() throws Exception {
+        JsonDiff diff=new JsonDiff();
+        diff.setOption(JsonDiff.Option.ARRAY_ORDER_INSIGNIFICANT);
+        diff.setOption(JsonDiff.Option.RETURN_LEAVES_ONLY);
+        List<JsonDelta> list=diff.computeDiff(esc("{'a':1,'b':'x','c':[1,2,3],'d':null }"),
+                                              esc("{'b':'x','a':1,'c':[2,3,1],'d':[ {'b':2}, {'a':1},{'a':1} ] }"));
+        Assert.assertEquals(1,list.size());
+    }
 }
