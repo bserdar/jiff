@@ -11,6 +11,7 @@ import java.io.IOException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.ContainerNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 
@@ -72,7 +73,9 @@ public class JsonDiff {
     
     private static final JsonComparator NODIFF_CMP=new JsonComparator() {
             @Override
-            public boolean compare(List<JsonDelta> delta,String context,JsonNode node1,JsonNode node2) {return false;}
+            public boolean compare(List<JsonDelta> delta,String context,
+                                   ContainerNode parent1,JsonNode node1,
+                                   ContainerNode parent2,JsonNode node2) {return false;}
         };
     
     /**
@@ -82,7 +85,9 @@ public class JsonDiff {
         @Override
         public boolean compare(List<JsonDelta> delta,
                                String context,
+                               ContainerNode parent1,
                                JsonNode node1,
+                               ContainerNode parent2,
                                JsonNode node2) {
             boolean ret=false;
             String fieldBase=context.isEmpty()?"":context+".";
@@ -92,7 +97,7 @@ public class JsonDiff {
                 String newContext=fieldBase+field;
                 JsonNode node1Value=entry.getValue();
                 JsonNode node2Value=node2.get(field);
-                if(computeDiff(delta,newContext,node1Value,node2Value))
+                if(computeDiff(delta,newContext,(ObjectNode)node1,node1Value,(ObjectNode)node2,node2Value))
                     ret=true;
             }
             // Are there any nodes that are in node2, but not in node1?
@@ -100,13 +105,13 @@ public class JsonDiff {
                 String field=node2Names.next();
                 if(filter.includeField(fieldBase+field)) {
                     if(!node1.has(field)) {
-                        delta.add(new JsonDelta(fieldBase+field,null,node2.get(field)));
+                        delta.add(new JsonDelta(fieldBase+field,(ObjectNode)node1,null,(ObjectNode)node2,node2.get(field)));
                         ret=true;
                     }
                 }
             }
             if(ret&&returnParentDiffs)
-                delta.add(new JsonDelta(context,node1,node2));
+                delta.add(new JsonDelta(context,parent1,node1,parent2,node2));
             return ret;
         }
     }
@@ -118,7 +123,9 @@ public class JsonDiff {
         @Override
         public boolean compare(List<JsonDelta> delta,
                                String context,
+                               ContainerNode parent1,
                                JsonNode node1,
+                               ContainerNode parent2,
                                JsonNode node2) {
             boolean ret=false;
             String fieldBase=context.isEmpty()?"":context+".";
@@ -127,11 +134,11 @@ public class JsonDiff {
                 String newContext=fieldBase+i;
                 JsonNode node1Value=node1.get(i);
                 JsonNode node2Value=node2.get(i);
-                if(computeDiff(delta,newContext,node1Value,node2Value))
+                if(computeDiff(delta,newContext,(ArrayNode)node1,node1Value,(ArrayNode)node2,node2Value))
                     ret=true;
             }
             if((ret&&returnParentDiffs)||node1.size()!=node2.size()) {
-                delta.add(new JsonDelta(context,node1,node2));
+                delta.add(new JsonDelta(context,parent1,node1,parent2,node2));
                 ret=true;
             }
             return ret;
@@ -204,7 +211,9 @@ public class JsonDiff {
         @Override
         public boolean compare(List<JsonDelta> delta,
                                String context,
+                               ContainerNode parent1,
                                JsonNode node1,
+                               ContainerNode parent2,
                                JsonNode node2) {
             boolean ret=false;
             String fieldBase=context.isEmpty()?"":context+".";
@@ -225,7 +234,7 @@ public class JsonDiff {
                 List<HashedNode> node1Els=entry.getValue();
                 for(HashedNode node1Element:node1Els) {
                     if(!findAndRemove(node2Elements,node1Element)) {
-                        delta.add(new JsonDelta(fieldBase+node1Element.getIndex(),node1Element.getNode(),null));
+                        delta.add(new JsonDelta(fieldBase+node1Element.getIndex(),(ArrayNode)node1,node1Element.getNode(),(ArrayNode)node2,null));
                         ret=true;
                     } else {
                         removed.add(node1Element);
@@ -239,7 +248,7 @@ public class JsonDiff {
                 List<HashedNode> node2Els=entry.getValue();
                 for(HashedNode node2Element:node2Els) {
                     if(!findAndRemove(node1Elements,node2Element)) {
-                        delta.add(new JsonDelta(fieldBase+node2Element.getIndex(),null, node2Element.getNode()));
+                        delta.add(new JsonDelta(fieldBase+node2Element.getIndex(),(ArrayNode)node1,null, (ArrayNode)node2,node2Element.getNode()));
                         ret=true;
                     }
                 }
@@ -247,7 +256,7 @@ public class JsonDiff {
             
             if(ret||node1.size()!=node2.size()) {
                 if(returnParentDiffs)
-                    delta.add(new JsonDelta(context,node1,node2));
+                    delta.add(new JsonDelta(context,parent1,node1,parent2,node2));
                 ret=true;
             }
             return ret;
@@ -288,20 +297,22 @@ public class JsonDiff {
         @Override
         public boolean compare(List<JsonDelta> delta,
                                String context,
+                               ContainerNode parent1,
                                JsonNode node1,
+                               ContainerNode parent2,
                                JsonNode node2) {
             if(node1.isValueNode()&&node2.isValueNode()) {
                 if(node1.isNumber()&&node2.isNumber()) {
                     if(!node1.asText().equals(node2.asText())) {
-                        delta.add(new JsonDelta(context,node1,node2));
+                        delta.add(new JsonDelta(context,parent1,node1,parent2,node2));
                         return true;
                     }
                 } else if(!node1.equals(node2)) {
-                    delta.add(new JsonDelta(context,node1,node2));
+                    delta.add(new JsonDelta(context,parent1,node1,parent2,node2));
                     return true;
                 }
             } else  if(!node1.equals(node2)) {
-                delta.add(new JsonDelta(context,node1,node2));
+                delta.add(new JsonDelta(context,parent1,node1,parent2,node2));
                 return true;
             }
             return false;
@@ -355,14 +366,26 @@ public class JsonDiff {
     /**
      * Returns true if there is a difference
      */
-    public  boolean computeDiff(List<JsonDelta> delta,String context,JsonNode node1,JsonNode node2) {
+    public boolean computeDiff(List<JsonDelta> delta,String context,JsonNode node1,JsonNode node2) {
+        return computeDiff(delta,context,null,node1,null,node2);
+    }
+
+    /**
+     * Returns true if there is a difference
+     */
+    public boolean computeDiff(List<JsonDelta> delta,
+                               String context,
+                               ContainerNode parent1,
+                               JsonNode node1,
+                               ContainerNode parent2,
+                               JsonNode node2) {
         boolean ret=false;
         if(context.length()==0||filter.includeField(context)) {
             JsonComparator cmp=getComparator(context,node1,node2);
             if(cmp!=null)
-                ret=cmp.compare(delta,context,node1,node2);
+                ret=cmp.compare(delta,context,parent1,node1,parent2,node2);
             else {
-                delta.add(new JsonDelta(context,node1,node2));
+                delta.add(new JsonDelta(context,parent1,node1,parent2,node2));
                 ret=true;
             }
         }
@@ -405,6 +428,103 @@ public class JsonDiff {
             } 
         }
         return null;
+    }
+
+    private static class Distance {
+        int numMissing;
+        int numSame;
+        int numDifferent;
+
+        public Distance(int numMissing,int numSame,int numDifferent) {
+            this.numMissing=numMissing;
+            this.numSame=numSame;
+            this.numDifferent=numDifferent;
+        }
+    }
+
+    private static final Distance DIFFERENT=new Distance(0,0,1);
+    private static final Distance SAME=new Distance(0,1,1);
+    private static final Distance MISSING=new Distance(1,0,0);
+
+    private Distance computeDistance(ValueNode node1,ValueNode node2) {
+        if(node1.isNumber()&&node2.isNumber()) {
+            if(!node1.asText().equals(node2.asText())) {
+                return DIFFERENT;
+            } else {
+                return SAME;
+            }
+        } else if(!node1.equals(node2)) {
+            return DIFFERENT;
+        } else
+            return SAME;
+    }
+
+    private Distance computeDistance(ObjectNode node1,ObjectNode node2) {
+        for(Iterator<Map.Entry<String,JsonNode> > itr=node1.fields();itr.hasNext();) {
+            Map.Entry<String,JsonNode> entry=itr.next();
+            String fieldName=entry.getKey();
+            JsonNode fieldValue=entry.getValue();
+            JsonNode field2Value=node2.get(fieldName);
+            if(field2Value==null) {
+                fieldResult=
+        }
+    }
+    
+    private Distance computeDistance(JsonNode node1,JsonNode node2) {
+        if(node1 instanceof ObjectNode &&
+           node2 instanceof ObjectNode) {
+        } else if(node1 instanceof ArrayNode &&
+                  node2 instanceof ArrayNode) {
+        } else if(node1 instanceof NullNode != node2 instanceof NullNode) {
+            return DIFFERENT;
+        } else if(node1 instanceof ValueNode && node2 instanceof ValueNode) {
+            return computeDistance( (ValueNode)node1, (ValueNode)node2);
+        }
+    }
+    
+    /**
+     * If there are mismatched array elements, try to find deltas that explain differences better
+     */
+    public List<JsonDelta> explainArrayDeltas(List<JsonDelta> delta) {
+        int n=delta.size();
+        List<JsonDelta> copyDelta=new ArrayList<>(delta);
+        List<JsonDelta> newDelta=new ArrayList<>(n);
+        for(int i=0;i<n;i++) {
+            JsonDelta d=copyDelta.get(i);
+            if(d.getParent1() instanceof ArrayNode &&
+               d.getNode1() != null &&
+               d.getNode2() == null) {
+                String fldName=d.getField();
+                int ix=fldName.lastIndexOf('.');
+                if(ix!=-1)
+                    fldName=fldName.substring(0,ix+1);
+                
+                Distance minDist=null;
+                int minIndex=-1;
+                for(int j=0;j<n;j++) {
+                    if(j!=i) {
+                        JsonDelta t=copyDelta.get(j);                        
+                        if(t.getParent2() instanceof ArrayNode &&
+                           t.getNode2() != null &&
+                           t.getNode1() == null &&
+                           t.getField().startsWith(fldName)&&
+                           t.getField().lastIndexOf('.')==ix) {
+                            Distance dist=computeDistance(d.getNode1(),t.getNode2());
+                            if(minDist==null||dist.compare(minDist)<0) {
+                                minDist=dist;
+                                minIndex=j;
+                            }
+                        }
+                    }
+                }
+                if(minDist!=null) {
+                    newDelta.add(minDist.delta);
+                    copyDelta.remove(minIndex);
+                    copyDelta.remove(minIndex>i?i:i-1);
+                }
+            }
+        }
+        return newDelta;
     }
 }
 

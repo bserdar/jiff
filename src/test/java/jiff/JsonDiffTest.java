@@ -227,4 +227,14 @@ public class JsonDiffTest {
                                               esc("{'b':'x','a':1,'c':[2,3,1],'d':[ {'b':2}, {'a':1,'c':3} ] }"));
         Assert.assertEquals(0,list.size());
     }
+
+    @Test
+    public void cmpObjArr() throws Exception {
+        JsonDiff diff=new JsonDiff();
+        diff.setOption(JsonDiff.Option.ARRAY_ORDER_INSIGNIFICANT);
+        diff.setOption(JsonDiff.Option.RETURN_LEAVES_ONLY);
+        List<JsonDelta> list=diff.computeDiff(esc("{'arr':[{'a':1,'b':'x','c':[1,2,3]},{'a':3,'b':'z','c':[4,5,6]}]}"),
+                                              esc("{'arr':[{'a':2,'b':'x','c':[2,3,1]},{'a':3,'b':'z','c':[4,5,6]}]}"));
+        Assert.assertEquals(2,list.size());
+    }
 }

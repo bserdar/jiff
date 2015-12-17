@@ -2,6 +2,9 @@ package jiff;
 
 public abstract class AbstractFieldFilter implements Filter {
 
+    /**
+     * Checks if field (containing indexes) matches pattern (containing * for index) 
+     */
     public static boolean matches(String pattern,String field) {
         int p=pattern.length();
         int f=field.length();
