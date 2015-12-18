@@ -147,31 +147,93 @@ public class JsonDiff {
     /**
      * Creates a hash for a json node. The hash is a weak hash, but insensitive to element order.
      */
-    private  class HashedNode {
+    private  static class HashedNode {
         private final JsonNode node;
-        private final Long hash;
         private final int index;
         
-        public HashedNode(JsonNode node,int index,List<String> context) {
+        public HashedNode(JsonNode node,int index) {
             this.node=node;
             this.index=index;
-            int ctxn=context.size();
-            context.add(Integer.toString(index));
-            hash=computeHash(node,context);
-            context.remove(ctxn);
         }
         
         public JsonNode getNode() {
             return node;
         }
 
-        public Long getHash() {
-            return hash;
-        }
-
         public int getIndex() {
             return index;
         }
+
+    }
+
+    private class ArrayNodes {
+        private final List<HashedNode> node1Elements=new ArrayList<>();
+        private final List<HashedNode> node2Elements=new ArrayList<>();
+
+        private void findAndRemove(List<String> context) {
+            List<JsonDelta> delta=new ArrayList<>();
+            int nctx=context.size();
+            context.add("");
+            for(int ix1=0;ix1<node1Elements.size();ix1++) {
+                HashedNode node1=node1Elements.get(ix1);
+                for(int ix2=0;ix2<node2Elements.size();ix2++) {
+                    HashedNode node2=node2Elements.get(ix2);
+                    context.set(nctx,Integer.toString(node1.index));
+                    if(!computeDiff(delta,context,node1.getNode(),node2.getNode())) {
+                        node1Elements.remove(ix1);
+                        ix1--;
+                        node2Elements.remove(ix2);
+                        break;
+                    }
+                }
+            }
+            context.remove(nctx);
+        }
+    }
+    
+    /**
+     * Recursively compares two arrays, treating then as sets (no element order requirement)
+     */
+    public class SetArrayNodeComparator implements JsonComparator {
+        @Override
+        public boolean compare(List<JsonDelta> delta,
+                               List<String> context,
+                               JsonNode node1,
+                               JsonNode node2) {
+            boolean ret=false;
+
+            int index=0;
+            Map<Long,ArrayNodes> map=new HashMap<>();
+            for(Iterator<JsonNode> itr=node1.elements();itr.hasNext();index++) {
+                HashedNode hnode=new HashedNode(itr.next(),index);
+                put(map,hnode,context).node1Elements.add(hnode);
+            }
+            index=0;
+            Map<Long,List<HashedNode>> node2Elements=new HashMap<>();
+            for(Iterator<JsonNode> itr=node2.elements();itr.hasNext();index++) {
+                HashedNode hnode=new HashedNode(itr.next(),index);
+                put(map,hnode,context).node2Elements.add(hnode);
+            }
+
+            for(ArrayNodes entry:map.values()) {
+                entry.findAndRemove(context);
+                for(HashedNode node:entry.node1Elements) {
+                    delta.add(new JsonDelta(JsonDiff.toString(context,Integer.toString(node.getIndex())),node.getNode(),null));
+                    ret=true;
+                }
+                for(HashedNode node:entry.node2Elements) {
+                    delta.add(new JsonDelta(JsonDiff.toString(context,Integer.toString(node.getIndex())),null,node.getNode()));
+                    ret=true;
+                }
+            }
+            if(ret||node1.size()!=node2.size()) {
+                if(returnParentDiffs)
+                    delta.add(new JsonDelta(JsonDiff.toString(context),node1,node2));
+                ret=true;
+            }
+            return ret;
+        }
+
 
         private long computeHash(JsonNode node,List<String> context) {
             long hash=0;
@@ -190,8 +252,8 @@ public class JsonDiff {
                         Map.Entry<String,JsonNode> entry=itr.next();
                         context.set(ctxn,entry.getKey());
                         if(filter.includeField(context)) {
-                        	hash+=entry.getKey().hashCode();
-                        	hash+=computeHash(entry.getValue(),context);
+                            hash+=entry.getKey().hashCode();
+                            hash+=computeHash(entry.getValue(),context);
                         }
                     }
                     context.remove(ctxn);
@@ -212,96 +274,18 @@ public class JsonDiff {
             return hash;
         }
 
-    }
-    
-    /**
-     * Recursively compares two arrays, treating then as sets (no element order requirement)
-     */
-    public class SetArrayNodeComparator implements JsonComparator {
-        @Override
-        public boolean compare(List<JsonDelta> delta,
-                               List<String> context,
-                               JsonNode node1,
-                               JsonNode node2) {
-            boolean ret=false;
+        private ArrayNodes put(Map<Long,ArrayNodes> map,HashedNode node,List<String> context) {
+            int ctxn=context.size();
+            context.add(Integer.toString(node.index));
+            Long hash=computeHash(node.getNode(),context);
+            context.remove(ctxn);
 
-            int index=0;
-            Map<Long,List<HashedNode>> node1Elements=new HashMap<>();
-            for(Iterator<JsonNode> itr=node1.elements();itr.hasNext();index++) {
-                put(node1Elements,new HashedNode(itr.next(),index,context));
-            }
-            index=0;
-            Map<Long,List<HashedNode>> node2Elements=new HashMap<>();
-            for(Iterator<JsonNode> itr=node2.elements();itr.hasNext();index++) {
-                put(node2Elements,new HashedNode(itr.next(),index,context));
-            }
-
-            List<HashedNode> removed=new ArrayList<>(node1Elements.size());
-            for(Map.Entry<Long,List<HashedNode>> entry:node1Elements.entrySet()) {
-                List<HashedNode> node1Els=entry.getValue();
-                for(HashedNode node1Element:node1Els) {
-                    if(!findAndRemove(node2Elements,node1Element,context)) {
-                        delta.add(new JsonDelta(JsonDiff.toString(context,Integer.toString(node1Element.getIndex())),node1Element.getNode(),null));
-                        ret=true;
-                    } else {
-                        removed.add(node1Element);
-                    }
-                }
-            }
-            for(HashedNode x:removed)
-                remove(node1Elements,x);
-            
-            for(Map.Entry<Long,List<HashedNode>> entry:node2Elements.entrySet()) {
-                List<HashedNode> node2Els=entry.getValue();
-                for(HashedNode node2Element:node2Els) {
-                    if(!findAndRemove(node1Elements,node2Element,context)) {
-                        delta.add(new JsonDelta(JsonDiff.toString(context,Integer.toString(node2Element.getIndex())),null, node2Element.getNode()));
-                        ret=true;
-                    }
-                }
-             }
-            
-            if(ret||node1.size()!=node2.size()) {
-                if(returnParentDiffs)
-                    delta.add(new JsonDelta(JsonDiff.toString(context),node1,node2));
-                ret=true;
-            }
-            return ret;
-        }
-
-        private void put(Map<Long,List<HashedNode>> map,HashedNode node) {
-            List<HashedNode> list=map.get(node.getHash());
-            if(list==null)
-                map.put(node.getHash(),list=new ArrayList<>());
-            list.add(node);
-        }
-
-        private void remove(Map<Long,List<HashedNode>> map,HashedNode node) {
-            List<HashedNode> list=map.get(node.getHash());
-            if(list!=null)
-                list.remove(node);
+            ArrayNodes an=map.get(hash);
+            if(an==null)
+                map.put(hash,an=new ArrayNodes());
+            return an;
         }
             
-        private boolean findAndRemove(Map<Long,List<HashedNode>> elements,HashedNode elem,List<String> context) {
-            List<HashedNode> nodes=elements.get(elem.getHash());
-            if(nodes==null)
-                return false;
-            List<JsonDelta> delta=new ArrayList<>();
-            int nctx=context.size();
-            context.add("");
-            int n=nodes.size();
-            for(int i=0;i<n;i++) {
-                HashedNode node=nodes.get(i);
-                context.set(nctx,Integer.toString(elem.index));
-                if(!computeDiff(delta,context,node.getNode(),elem.getNode())) {
-                    nodes.remove(i);
-                    context.remove(nctx);
-                    return true;
-                }
-            }
-            context.remove(nctx);
-            return false;
-        }
     }
 
     /**
