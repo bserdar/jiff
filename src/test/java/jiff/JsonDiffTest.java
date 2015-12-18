@@ -28,11 +28,7 @@ public class JsonDiffTest {
         JsonDiff diff=new JsonDiff();
         diff.setOption(JsonDiff.Option.ARRAY_ORDER_INSIGNIFICANT);
         diff.setOption(JsonDiff.Option.RETURN_LEAVES_ONLY);
-        diff.setFilter(new AbstractFieldFilter() {
-                public boolean includeField(String fieldName) {
-                    return !fieldName.equals("x");
-                }
-            });                 
+        diff.setFilter(new ExcludeFieldsFilter("x"));
         List<JsonDelta> list=diff.computeDiff(esc("{'a':1,'b':'x','c':[1,2,3],'x':1}"),
                                               esc("{'b':'x','a':1,'c':[2,3,1]}"));
         Assert.assertEquals(0,list.size());
