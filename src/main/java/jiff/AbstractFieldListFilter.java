@@ -4,7 +4,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.ArrayList;
 
-
 public abstract class AbstractFieldListFilter extends AbstractFieldFilter {
 
     protected List<List<String>> fields;

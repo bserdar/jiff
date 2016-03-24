@@ -20,7 +20,7 @@ import com.fasterxml.jackson.databind.node.ValueNode;
  *
  * @author bserdar
  */
-public class JsonDiff {
+public final class JsonDiff {
 
     /**
      * Comparison options
@@ -59,9 +59,9 @@ public class JsonDiff {
     }
 
     
-    private JsonComparator objectComparator=new DefaultObjectNodeComparator();
+    private final JsonComparator objectComparator=new DefaultObjectNodeComparator();
     private JsonComparator arrayComparator=new DefaultArrayNodeComparator();
-    private JsonComparator valueComparator=new DefaultValueNodeComparator();
+    private final JsonComparator valueComparator=new DefaultValueNodeComparator();
 
     private boolean returnParentDiffs=false;
 
@@ -364,7 +364,7 @@ public class JsonDiff {
      */
     public  boolean computeDiff(List<JsonDelta> delta,List<String> context,JsonNode node1,JsonNode node2) {
         boolean ret=false;
-        if(context.size()==0||filter.includeField(context)) {
+        if(context.isEmpty()||filter.includeField(context)) {
             JsonComparator cmp=getComparator(context,node1,node2);
             if(cmp!=null)
                 ret=cmp.compare(delta,context,node1,node2);

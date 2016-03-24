@@ -1,7 +1,6 @@
 package jiff;
 
 import org.junit.Test;
-import org.junit.Assert;
 
 import java.io.*;
 
@@ -10,6 +9,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.skyscreamer.jsonassert.JSONAssert;
 
+/**
+ * Compare performance of jiff to JSON Assert.
+ * Usage:  mvn clean test -Dtest=SpeedCompareTest -Dfile=<filename>
+ * Where <filename> is the file containing JSON to compare.
+ * Results are written to stdout.
+ */
 public class SpeedCompareTest {
 
     private static final int numComparisons=500;
@@ -17,13 +22,13 @@ public class SpeedCompareTest {
     private String read() throws Exception {
         String fname=System.getProperty("file");
         if(fname!=null) {
-            FileReader reader=new FileReader(fname);
-            int i;
-            StringBuffer buf=new StringBuffer();
-            while((i=reader.read())>=0)
-                buf.append((char)i);
-            reader.close();
-            return buf.toString();
+            try (FileReader reader = new FileReader(fname)) {
+                int i;
+                StringBuilder buf = new StringBuilder();
+                while((i=reader.read())>=0)
+                    buf.append((char)i);
+                return buf.toString();
+            }
         }
         return null;
     }
