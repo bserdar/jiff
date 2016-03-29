@@ -393,18 +393,14 @@ public abstract class DocCompare<BaseType,ValueType,ObjectType,ArrayType>  {
 
         @Override
         public boolean equals(Object x) {
-            if (!(x instanceof DefaultIdentity)) {
+            if (x == null || !(x instanceof DefaultIdentity)) {
                 return false;
             }
-            try {
-                DefaultIdentity d=(DefaultIdentity)x;
-                for(int i=0;i<nodes.length;i++) {
-                    if(!d.nodes[i].equals(nodes[i]))
-                        return false;
-                }
-            } catch (Exception e) {
-                return false;
-            }   
+            DefaultIdentity d=(DefaultIdentity)x;
+            for(int i=0;i<nodes.length;i++) {
+                if(!d.nodes[i].equals(nodes[i]))
+                    return false;
+            }
 
             return true;
         }
@@ -595,7 +591,7 @@ public abstract class DocCompare<BaseType,ValueType,ObjectType,ArrayType>  {
                 field2.add(Integer.toString(index2));
                 // array2 has the same element
                 // If it is at a different index, this is a move
-                if(index2.equals(entry1.getValue())) {
+                if(!index2.equals(entry1.getValue())) {
                     ret.add(new Move(field1,field2,getElement(node1,entry1.getValue())));
                 }
                 // Recursively compare contents to get detailed diff
@@ -627,15 +623,10 @@ public abstract class DocCompare<BaseType,ValueType,ObjectType,ArrayType>  {
 
         @Override
         public boolean equals(Object o) {
-            if (!(o instanceof Pair)) {
+            if (o == null || !(o instanceof Pair)) {
                 return false;
             }
-            try {
-                return ((Pair)o).i1==i1&&
-                    ((Pair)o).i2==i2;
-            } catch (Exception e) {
-                return false;
-            }
+            return ((Pair) o).i1 == i1 && ((Pair) o).i2 == i2;
         }
 
         public Pair(int i1,int i2) {
