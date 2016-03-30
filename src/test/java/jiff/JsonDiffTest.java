@@ -5,7 +5,6 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.Assert;
 
-import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.node.*;
 
 public class JsonDiffTest {

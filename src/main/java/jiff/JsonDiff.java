@@ -364,7 +364,7 @@ public class JsonDiff {
      */
     public  boolean computeDiff(List<JsonDelta> delta,List<String> context,JsonNode node1,JsonNode node2) {
         boolean ret=false;
-        if(context.size()==0||filter.includeField(context)) {
+        if(context.isEmpty()||filter.includeField(context)) {
             JsonComparator cmp=getComparator(context,node1,node2);
             if(cmp!=null)
                 ret=cmp.compare(delta,context,node1,node2);

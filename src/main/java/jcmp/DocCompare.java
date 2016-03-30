@@ -4,10 +4,9 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.HashMap;
-import java.util.ListIterator;
-import java.util.LinkedList;
 import java.util.Iterator;
 import java.util.HashSet;
+import java.util.Objects;
 
 import jiff.JsonDiff;
 import jiff.AbstractFieldFilter;
@@ -105,7 +104,7 @@ public abstract class DocCompare<BaseType,ValueType,ObjectType,ArrayType>  {
      * element moves, it only includes additions, removals, and
      * modifications.
      */
-    public static class Difference<T> {
+    public static final class Difference<T> {
         private final List<Delta<T>> delta;
         private int numUnchangedFields;
         private int numChangedFields;
@@ -134,7 +133,6 @@ public abstract class DocCompare<BaseType,ValueType,ObjectType,ArrayType>  {
         public Difference(Delta<T> d) {
             this(new ArrayList<Delta<T>>(1));
             add(d);
-            
         }
 
         /**
@@ -356,7 +354,7 @@ public abstract class DocCompare<BaseType,ValueType,ObjectType,ArrayType>  {
      * uniquely identify array elements
      */
     public static class ArrayIdentityFields {
-        private String[] fields;
+        private final String[] fields;
 
         public ArrayIdentityFields(String...fields) {
             this.fields=fields;
@@ -383,9 +381,10 @@ public abstract class DocCompare<BaseType,ValueType,ObjectType,ArrayType>  {
         public int hashCode() {
             if(hcode==null) {
                 int code=0;
-                for(int i=0;i<nodes.length;i++) {
-                    if(nodes[i]!=null)
-                        code+=nodes[i].hashCode();
+                for (T node : nodes) {
+                    if (node != null) {
+                        code += node.hashCode();
+                    }
                 }
                 hcode=code;
             }
@@ -394,15 +393,14 @@ public abstract class DocCompare<BaseType,ValueType,ObjectType,ArrayType>  {
 
         @Override
         public boolean equals(Object x) {
-            try {
-                DefaultIdentity d=(DefaultIdentity)x;
-                for(int i=0;i<nodes.length;i++) {
-                    if(!d.nodes[i].equals(nodes[i]))
-                        return false;
-                }
-            } catch (Exception e) {
+            if (x == null || !(x instanceof DefaultIdentity)) {
                 return false;
-            }   
+            }
+            DefaultIdentity d=(DefaultIdentity)x;
+            for(int i=0;i<nodes.length;i++) {
+                if(!d.nodes[i].equals(nodes[i]))
+                    return false;
+            }
 
             return true;
         }
@@ -593,7 +591,7 @@ public abstract class DocCompare<BaseType,ValueType,ObjectType,ArrayType>  {
                 field2.add(Integer.toString(index2));
                 // array2 has the same element
                 // If it is at a different index, this is a move
-                if(index2!=entry1.getValue()) {
+                if(!index2.equals(entry1.getValue())) {
                     ret.add(new Move(field1,field2,getElement(node1,entry1.getValue())));
                 }
                 // Recursively compare contents to get detailed diff
@@ -618,17 +616,17 @@ public abstract class DocCompare<BaseType,ValueType,ObjectType,ArrayType>  {
     private static class Pair {
         private final int i1,i2;
 
+        @Override
         public int hashCode() {
             return i1*1001+i2;
         }
 
+        @Override
         public boolean equals(Object o) {
-            try {
-                return ((Pair)o).i1==i1&&
-                    ((Pair)o).i2==i2;
-            } catch (Exception e) {
+            if (o == null || !(o instanceof Pair)) {
                 return false;
             }
+            return ((Pair) o).i1 == i1 && ((Pair) o).i2 == i2;
         }
 
         public Pair(int i1,int i2) {
@@ -727,7 +725,7 @@ public abstract class DocCompare<BaseType,ValueType,ObjectType,ArrayType>  {
         }
         // Look at associations for moved nodes
         for(Map.Entry<Integer,Integer> entry:assoc.assoc.entrySet()) {
-            if(entry.getKey()!=entry.getValue()) {
+            if(!Objects.equals(entry.getKey(), entry.getValue())) {
                 field1.add(Integer.toString(entry.getKey()));
                 field2.add(Integer.toString(entry.getValue()));
                 BaseType node=getElement(node1,entry.getKey());
@@ -745,7 +743,7 @@ public abstract class DocCompare<BaseType,ValueType,ObjectType,ArrayType>  {
     private static class IxDiff<T> {
         private Difference<T> diff;
         private double change;
-        private int index1,index2;
+        private final int index1,index2;
 
         public IxDiff(Difference<T> diff,
                       double change,
@@ -766,7 +764,6 @@ public abstract class DocCompare<BaseType,ValueType,ObjectType,ArrayType>  {
         private final ArrayList<Integer> ix2=new ArrayList<>();
         private int itr1;
         private int itr2;
-        private int last1,last2;
         private final Map<Integer,Integer> assoc=new HashMap<>();
         /**
          * Keeps the IxDiff with the minimum change between index1 and index2, keyed on index1
@@ -802,7 +799,7 @@ public abstract class DocCompare<BaseType,ValueType,ObjectType,ArrayType>  {
          */
         public int next1() {
             itr1++;
-            return last1=ix1.get(itr1);
+            return ix1.get(itr1);
         }
 
         public void remove1(int index) {
@@ -833,7 +830,7 @@ public abstract class DocCompare<BaseType,ValueType,ObjectType,ArrayType>  {
          */
         public int next2() {
             itr2++;
-            return last2=ix2.get(itr2);
+            return ix2.get(itr2);
         }
 
         public void remove2(int index) {
@@ -860,7 +857,7 @@ public abstract class DocCompare<BaseType,ValueType,ObjectType,ArrayType>  {
             double change=diff.getChangeAmount();
             IxDiff m=minimums1.get(index1);
             if(m==null||m.change>change) {
-                minimums1.put(index1,m=new IxDiff(diff,change,index1,index2));
+                minimums1.put(index1,new IxDiff(diff,change,index1,index2));
             }
         }
 

@@ -1,13 +1,7 @@
 package jcmp;
 
-import java.util.List;
-import java.util.ArrayList;
 import java.util.Map;
-import java.util.HashMap;
-import java.util.ListIterator;
-import java.util.LinkedList;
 import java.util.Iterator;
-import java.util.HashSet;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -31,7 +25,7 @@ import jiff.AbstractFieldFilter;
  *
  * Arrays: There are two possible algorithms to compare arrays. If
  * array elements contain a unique identifier (which is defined by the
- * caller), then array elelements of the first and the second document
+ * caller), then array elements of the first and the second document
  * are matched using the unique identifiers of array elements. Then
  * each matching array element is compared to generate the detailed
  * difference. If array elements don't have unique identifiers, then
